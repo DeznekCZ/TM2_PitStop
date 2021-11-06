@@ -1,0 +1,155 @@
+#RequireContext CGameCtnEditorPluginScriptHandler
+#Include "MathLib" as MathLib
+#Include "TextLib" as TL
+
+Text CreateManialink()
+{
+	declare MLText =
+	"""
+		<script><!--
+			Void onSelFill()	{ declare ChangeModeAction for Page = 0; ChangeModeAction=1; }
+			Void onSelAble() {
+				declare  enterCustomSelectionMode for Page = False;
+				if (enterCustomSelectionMode) {
+					enterCustomSelectionMode = False;
+					(Page.GetFirstChild("lblSelAble") as CMlLabel).SetText("$a00Edit blocks");
+				} else {
+					enterCustomSelectionMode = True;
+					(Page.GetFirstChild("lblSelAble") as CMlLabel).SetText("$0a0Edit blocks");
+				}
+			}
+			
+			main () 
+			{
+				(Page.GetFirstChild("lblSelAble") as CMlLabel).TextColor = <0.8,0.0,0.0>;
+				while(True) 
+				{
+					yield;
+					foreach(Event in PendingEvents) 
+					{
+						if(Event.Type == CGameManialinkScriptEvent::Type::MouseClick)
+						{	
+							if(Event.ControlId == "qadSelFill")	onSelFill();
+							if(Event.ControlId == "qadSelAble")	onSelAble();
+						}
+					}
+				}
+			}
+		--></script>
+		<frame posn="-140 70">
+			<quad 
+				id="qadSelFill" posn="0 0" sizen="35 5" 
+				halign="center" valign="center" style="Bgs1InRace" 
+				substyle="BgCard" ScriptEvents="1"
+				/>
+				<label 
+					id="lblSelFill" text="$000Save PitLane" 
+					posn="0 0"  halign="center" valign="center" 
+					style="TextButtonSmall" textsize="2"
+					/>
+					
+			<quad 
+				id="qadSelAble" posn="0 -5" sizen="35 5" 
+				halign="center" valign="center" style="Bgs1InRace" 
+				substyle="BgCard" ScriptEvents="1"
+				/>
+				<label 
+					id="lblSelAble" text="$a00Edit blocks" 
+					posn="0 -5"  halign="center" valign="center" 
+					style="TextButtonSmall" textsize="2"
+					/>
+			
+		</frame>""";
+	return MLText;
+}
+
+main()
+{
+	declare Boolean CorrectPitLane = False;
+
+	declare Text LANE_START = "PITLANE=[";
+	declare Text LANE_END = "]";
+	declare Integer ChangeModeAction for ManialinkPage;
+	declare enterCustomSelectionMode for ManialinkPage = False;
+	ManialinkText = CreateManialink();	
+	
+	declare Text Info = Map.Comments;
+	declare Integer Len = TL::Length(Info);
+	declare Text Coordinates;
+	declare Text ToReplace;
+	// declare Int3[] PitLane;
+	
+	declare Integer Count = 0;
+	
+	for (Index, 0, Len-1) {
+		//log(TL::SubString(Info, Index, 9));
+		//sleep(1000);
+		if (TL::SubString(Info, Index, 9) == LANE_START) {
+			ToReplace = LANE_START;
+			declare Integer Index2 = Index + 9;
+			while (Index2 < Len && TL::SubString(Info, Index2-1, 1) != "]") {
+				Coordinates = Coordinates ^ TL::SubString(Info, Index2, 2);
+				ToReplace = ToReplace ^ TL::SubString(Info, Index2, 3);
+				Count += 1;
+				Index2 += 3;
+			}
+			break;
+		}
+	}
+	log(Coordinates);
+	if (Count % 3 == 0 && Count > 0) {
+		for (Index, 0, Count / 3-1) {
+			declare Int3 Vector = <0,0,0>;
+			Vector.X = TL::ToInteger(TL::SubString(Coordinates, Index*6, 2));
+			Vector.Y = TL::ToInteger(TL::SubString(Coordinates, Index*6+2, 2));
+			Vector.Z = TL::ToInteger(TL::SubString(Coordinates, Index*6+4, 2));
+			CustomSelectionCoords.add(Vector);
+		}
+		log("PITLANE: Correct point nodes: "^Count/3);
+		CorrectPitLane = True;
+	}
+	
+	ShowCustomSelection();
+	
+	declare Boolean removed;
+	
+	while(True) {
+		yield;
+		
+		if (ChangeModeAction==1) {
+			declare Text ToWrite = LANE_START;
+			
+			declare Boolean C = False;
+			foreach(coord in CustomSelectionCoords) {
+				if (C)			  ToWrite ^= ",";
+				else			  C = True;
+				if (coord.X < 10) ToWrite ^= "0" ^ coord.X;
+				else 			  ToWrite ^= coord.X;
+				if (coord.Y < 10) ToWrite ^= ",0" ^ coord.Y;
+				else 			  ToWrite ^= "," ^ coord.Y;
+				if (coord.Z < 10) ToWrite ^= ",0" ^ coord.Z;
+				else 			  ToWrite ^= "," ^ coord.Z;
+			}
+			ToWrite ^= LANE_END;
+			
+			if (TL::Length(ToReplace) == 0) {
+				Map.Comments ^= " " ^ ToWrite;
+			} else {
+				Map.Comments = TL::Replace(Map.Comments, ToReplace, ToWrite);
+			}
+			ToReplace = ToWrite;
+			
+			ChangeModeAction=0;
+		} else if (enterCustomSelectionMode) {
+			foreach (Event in PendingEvents) {
+				if (Event.Type == CEditorPluginEvent::Type::CursorSelectionEnd) {
+					if (CustomSelectionCoords.exists(CursorCoord)) {
+						removed = CustomSelectionCoords.remove(CursorCoord);
+					} else {
+						CustomSelectionCoords.add(CursorCoord);
+					}
+				}
+			}
+		}
+	}
+}
