@@ -1,0 +1,375 @@
+/**
+ *	Local records script
+ */
+
+#Const	Version		"2020-05-11"
+#Const	ScriptName	"Libs/DeznekCZ/Records/Local.Script.txt"
+#Const	Author		"DeznekCZ"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+#Include "Libs/Nadeo/Layers2.Script.txt" as Layers
+#Include "Libs/DeznekCZ/ManialinkHelper.Script.txt" as MLS
+
+// ---------------------------------- //
+// @section Globals
+// ---------------------------------- //
+declare Boolean G_Debug;
+declare CTmMode G_Mode;
+declare Integer[Text] G_Cache;
+declare Integer G_AcurateLaps;
+declare Real G_AcurateTank;
+declare Text ScoreServer;
+declare CHttpRequest[] Private_ToDestroy;
+declare Integer _next;
+
+// ---------------------------------- //
+// @section Accessors
+// ---------------------------------- //
+Void LoadLib(CTmMode _Mode, Boolean _Debug) {
+	Private_ToDestroy = [];
+	G_Mode = _Mode;
+	G_Debug = _Debug;
+	if (_Debug)
+		ScoreServer = "http://localhost:1337";
+	else
+		ScoreServer = "http://89.221.217.150:1337";
+}
+
+Void LoadLib(CTmMode _Mode) {
+	LoadLib(_Mode, False);
+}
+
+// GETTERS
+Integer GetAcurateLaps() {
+	return G_AcurateLaps;
+}
+Real GetAcurateTank() {
+	return G_AcurateTank;
+}
+
+// ---------------------------------- //
+// @section Manialink
+// ---------------------------------- //
+
+// ---------------------------------- //
+// Manialink remove instance
+// ---------------------------------- //
+Void Destroy(CTmPlayer _Player)
+{
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "LocalRecords_Frame_"^Login;
+
+	Layers::Detach(Frame);
+	Layers::Destroy(Frame);
+}
+
+// ---------------------------------- //
+// Manialink create instance
+// ---------------------------------- //
+Integer Next() {
+	_next -= 10;
+	return _next;
+}
+
+Void Init(CTmPlayer _Player)
+{
+	Destroy(_Player);
+	_next = -20;
+	
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "LocalRecords_Frame_"^Login;
+	declare Text Frame_Manialink = MLS::Create(
+		G_Debug,
+		[
+		// ELEMENTS
+		MLS::C_Layout => """
+			<frame id="LocalRecords_Frame"     posn="-155 85">
+				<quad  id="LocalRecords_Background" posn="0 0" sizen="50 50" style="Bgs1InRace" substyle="BgWindow2" />
+				<frame id="LocalRecords_RecordList" >
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+					<frame posn="0 {{{Next()}}}"><label id="LR_Name" posn="0 {{{_next}}}" /></frame>
+				</frame>
+				<!-- Buttons -->
+				<quad  id="LocalRecords_Open" posn="50 0" sizen="50 50" scriptevents="1" style="Bgs1InRace" substyle="BgWindow2" />
+				<label id="LocalRecords_Username" posn="0 0" sizen="50 50" textsize="2" style="TextPlayerCardName" />
+			</frame>
+		""", 
+		
+		// CODE DECLARATION
+		MLS::C_CodeInit => """
+			{{{MLS::MlQuad("LocalRecords_Background")}}}
+			{{{MLS::MlLabel("LocalRecords_Username")}}}
+			{{{MLS::MlFrame("LocalRecords_RecordList")}}}
+			
+			declare Text LastUpdate = "";
+			declare Integer Timeout = Now;
+			declare Text ScoreServer = "{{{ScoreServer}}}";
+			
+			// HttpEvents
+			declare CHttpRequest Request = Http.CreateGet(
+									ScoreServer 
+									^ "/recordList"
+									^ "?time=0"
+									^ "&map=" ^ Map.MapInfo.MapUid
+							);
+			
+			declare Integer C_Request_None = 0;
+			declare Integer C_Request_List = 1;
+			declare Integer C_Request_Name = 2;
+			declare Integer RequestType = C_Request_List;
+			
+			declare Text[] RequestNames = [];
+			declare Text[Text] Names = [];
+			
+			declare Text LastMap = "";
+		""",
+		
+		// CODE LOOP
+		MLS::C_CodeLoop => """
+			if (!PageIsVisible) LocalRecords_Background.Visible = False;
+			
+			{{{MLS::Events([ 
+				MLS::MouseClicked([
+					"LocalRecords_Open" => "LocalRecords_Background.Visible = !LocalRecords_Background.Visible;"
+				])
+			])}}}
+			
+			// if ({{{G_Debug}}}) log(RequestType);
+			
+			if (Map.MapInfo.MapUid != LastMap) LastUpdate = "0";
+			
+			if (Timeout < Now) {
+				if(Request.IsCompleted) {
+					if (RequestType == C_Request_List && Request.StatusCode == 200)
+					{
+						LastUpdate = Time::GetCurrent();
+						
+						// Apply list
+						declare Text[] records = TL::Split(";", Request.Result);
+						// log(Request.Result);
+						
+						declare Integer index = 0;
+						foreach (LR_Frame in LocalRecords_RecordList.Controls) {
+							declare LR_Name = (((LR_Frame as CMlFrame).GetFirstChild("LR_Name")) as CMlLabel);
+							
+							if (index >= records.count) {
+								LR_Name.Value = "";
+							}
+							else if (TL::Length(records[index]) == 0) {
+								LR_Name.Value = "";
+							}
+							else {
+								declare Text[] line = TL::Split(":", records[index]);
+								declare Text name = line[0];
+								
+								// log(records[index]);
+								// log(name);
+								
+								if (Names.existskey(name)) {
+									LR_Name.Value = Names[name];
+								} else {
+									LR_Name.Value = name;
+									RequestNames.add(name);
+								}
+							}
+							
+							index += 1;
+						}
+						
+						RequestType = C_Request_None;
+					}
+					else if (RequestType == C_Request_Name && Request.StatusCode == 200) {
+						declare Text Login = RequestNames[0];
+						Names[Login] = Request.Result;
+						RequestNames.remove(Login);
+						
+						foreach (LR_Frame in LocalRecords_RecordList.Controls) {
+							declare LR_Name = (((LR_Frame as CMlFrame).GetFirstChild("LR_Name")) as CMlLabel);
+							
+							if (LR_Name.Value == Login) {
+								LR_Name.Value = Names[Login];
+							}
+						}
+						
+						RequestType = C_Request_None;
+					}
+					else if (RequestType == C_Request_Name && Request.StatusCode == 404) {
+						if (RequestNames.count > 0) RequestNames.remove(RequestNames[0]);
+						RequestType = C_Request_None;
+					}
+					else if (RequestType == C_Request_List && Request.StatusCode == 404) {
+						RequestType = C_Request_None;
+					}
+					else {
+						if (RequestNames.count > 0) {
+							// Request timeout (space bettween)
+							Timeout = Now + 1000;
+							RequestType = C_Request_Name;
+							
+							Http.Destroy(Request);
+							Request = Http.CreateGet(
+									ScoreServer 
+									^ "/getName"
+									^ "?login=" ^ RequestNames[0]
+							);
+							
+						}
+						else {
+							// Request timeout (space bettween)
+							Timeout = Now + 1000;
+							RequestType = C_Request_List;
+							
+							Http.Destroy(Request);
+							Request = Http.CreateGet(
+									ScoreServer 
+									^ "/recordList"
+									^ "?time=" ^ LastUpdate
+									^ "?map=" ^ Map.MapInfo.MapUid
+							);
+						}
+					}
+				}
+			}
+		"""
+		]
+	);
+	
+	Layers::Create(Frame, Frame_Manialink);
+	Layers::Attach(Frame, _Player);
+	Layers::SetType(Frame, CUILayer::EUILayerType::ScoresTable);
+}
+
+Void CalculateLaps(CMapInfo _MapInfo) {
+	declare CHttpRequest Request = Http.CreateGet(
+		ScoreServer
+		^ "/accurateLaps"
+		^ "?map=" ^ _MapInfo.MapUid
+	);
+	
+	while(!Request.IsCompleted) yield;
+	
+	if (Request.StatusCode == 200)
+	{
+		log(Request.Result);
+		declare Text[] values = TL::Split(";", Request.Result);
+		
+		G_AcurateLaps = TL::ToInteger(values[0]);
+		G_AcurateTank = TL::ToReal(values[1]);
+		
+		log("Laps: " ^ G_AcurateLaps ^ " Tank: " ^ G_AcurateTank);
+	}
+	else
+	{
+		G_AcurateLaps = 10;
+		G_AcurateTank = 10.;
+	}
+}
+
+// ---------------------------------- //
+// Records of map
+// 
+// @Value dictionary<Text,Integer>
+//        time:Integer[login:Text]
+// ---------------------------------- //
+Void LoadRecords(CMapInfo _MapInfo) {
+	G_Cache = [];
+	// TODO LOAD
+	
+	declare CHttpRequest Request = Http.CreateGet(
+		ScoreServer
+		^ "/serverCache"
+		^ "?map=" ^ _MapInfo.MapUid
+		^ "&name=" ^ TL::Replace(_MapInfo.Name, "&", "%26")
+		^ "&author=" ^ _MapInfo.AuthorLogin
+	);
+	
+	while(!Request.IsCompleted) yield;
+	
+	if (Request.StatusCode == 200)
+	{
+		// log(Request.Result);
+		declare Text[] values = TL::Split(";", Request.Result);
+		foreach (value in values) {
+			if (TL::Length(value) == 0) continue;
+		
+			declare Text[] data = TL::Split(":", Request.Result);
+			G_Cache[data[0]] = TL::ToInteger(data[1]);
+		}
+	}
+	
+	Http.Destroy(Request);
+	
+	CalculateLaps(_MapInfo);
+}
+
+Void Private_Store() {
+	// TODO STORE
+}
+
+Integer[Text] GetRecords() {
+	return G_Cache;
+}
+
+// ---------------------------------- //
+// @section Manialink
+// ---------------------------------- //
+Text RequestInit() {
+	return """ declare CHttpRequest LR_Request = Null; """;
+}
+Text RequestCheck() {
+	return """ if (LR_Request != Null && LR_Request.IsCompleted) {
+			Http.Destroy(LR_Request);
+			LR_Request = Null;
+	}
+""";
+}
+Text SendRecord(Text _Consuption, Text _Distance, Text _Time) {
+	return """
+		while (LR_Request != Null && !LR_Request.IsCompleted) {}
+		Http.Destroy(LR_Request);
+		
+		LR_Request = Http.CreateGet(
+			"{{{ScoreServer}}}"
+			^ "/registerScore"
+			^ "?map=" ^ Map.MapInfo.MapUid
+			// DATA ARRAY
+			^ "&login=" ^ InputPlayer.User.Login
+			^ "&time=" ^ {{{_Time}}}
+			^ "&consuption=" ^ {{{_Consuption}}}
+			^ "&distance=" ^ {{{_Distance}}}
+			^ "&name=" ^ TL::Replace(InputPlayer.User.Name, "&", "%26")
+		);
+	""";
+}
+
+// ---------------------------------- //
+// @section Placeholder
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ---------------------------------- //

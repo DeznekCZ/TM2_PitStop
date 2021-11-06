@@ -1,0 +1,198 @@
+/**
+ *	Laps mode
+ */
+
+#Const  CompatibleMapTypes  "Race"
+#Const	Version		"2015-07-20"
+#Const	ScriptName	"Libs/DeznekCZ/PitStop/Fuel.Script.txt"
+#Const	Author		"DeznekCZ"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Layers2.Script.txt" as Layers
+#Include "Libs/Nadeo/Message.Script.txt" as Message
+#Include "Libs/Nadeo/TrackMania/TM3.Script.txt" as TM
+
+#Include "Libs/DeznekCZ/PitStop/Setting.Script.txt" as Setting
+
+#Const C_IsStoped 0.1
+#Const C_IddleSpeed 10.0
+#Const C_PiLaneSpeed 80.0
+#Const C_ConsModif 0.0000028
+
+// ---------------------------------- //
+// Globals
+// ---------------------------------- //
+// ---------------------------------- //
+declare Real[Text] PlayersFuel;
+declare Vec3[Text] PlayersPosition;
+declare Integer[Text] PlayersNow;
+
+declare Real Tanking;
+
+declare Int3[] PitLane;
+
+declare Integer LoopNow;
+declare Boolean RaceAbleMap;
+declare Boolean RaceStarted;
+
+declare CUILayer[Text] PlayersFuelLayer;
+declare CUILayer[Text] PlayersFuelBack;
+
+declare Integer G_MapWidth;
+declare Integer G_MapHeight;
+
+// ---------------------------------- //
+// Functions
+// ---------------------------------- //
+// ---------------------------------- //
+// ---------------------------------- //
+
+/** Consumes result of boolean functions
+ */
+Void Ignore(Boolean _bool) {}
+
+Void Set_MapProportion(Integer _MapWidth, Integer _MapHeight) {
+	G_MapWidth = _MapWidth;
+	G_MapHeight = _MapHeight;
+}
+
+Int3[] GetPitLane() {
+	return PitLane;
+}
+
+Void SetPitLane(Vec3 _PitLane) {
+	PitLane = [<
+			 ML::FloorInteger(_PitLane.X) / G_MapWidth,
+			 ML::FloorInteger(_PitLane.Y / G_MapHeight) + G_MapHeight,
+			 ML::FloorInteger(_PitLane.Z) / G_MapWidth
+			>];
+}
+
+/** Return the version number of the script
+ *
+ *	@return				The version number of the script
+ */
+Text GetScriptVersion() {
+	return Version;
+}
+
+// ---------------------------------- //
+/** Return the name of the script
+ *
+ *	@return				The name of the script
+ */
+Text GetScriptName() {
+	return ScriptName;
+}
+
+Boolean IsOnPit(CTmPlayer _Player) {
+	declare Int3 BlockPosition = 
+			<ML::FloorInteger(_Player.Position.X) / G_MapWidth,
+			 ML::FloorInteger(_Player.Position.Y / G_MapHeight) + G_MapHeight,
+			 ML::FloorInteger(_Player.Position.Z) / G_MapWidth>; 
+
+	foreach (Position in PitLane) {
+		if (Position == BlockPosition) {
+			return True;
+		}
+	}
+	return False;
+}
+
+Real Min (Real Num1, Real Num2) {
+	if (Num1 > Num2) {
+		return Num2;
+	}
+	return Num1;
+}
+
+Real Max (Real Num1, Real Num2) {
+	if (Num1 > Num2) {
+		return Num1;
+	}
+	return Num2;
+}
+
+Integer MinI (Integer Num1, Integer Num2) {
+	if (Num1 > Num2) {
+		return Num2;
+	}
+	return Num1;
+}
+
+Integer MaxI (Integer Num1, Integer Num2) {
+	if (Num1 > Num2) {
+		return Num1;
+	}
+	return Num2;
+}
+
+Void AddFuel(CTmPlayer _Player, Real _Ammount) {
+	//PlayersFuel[_Player.User.Login] = PlayersFuel[_Player.User.Login] + _Ammount;
+}
+
+Void InitMap(CTmMode _Mode, Real _Consuption, Real _Litres, Real _Tanking) {
+	log(_Mode.Map.CollectionName ^ "::" ^ _Mode.Map.DecorationName);
+	
+	Set_MapProportion(32, 8);
+	
+	if (_Mode.Map.CollectionName == "Stadium") Set_MapProportion(32, 8);
+	if (_Mode.Map.CollectionName == "Valley") Set_MapProportion(32, 8);
+	if (_Mode.Map.CollectionName == "Canyon") Set_MapProportion(64, 16);
+	if (_Mode.Map.CollectionName == "Lagoon") Set_MapProportion(64, 16);
+
+	Setting::AddAdmins(["zdenekrockie","sumavahawk","martelprod","nrt","tm-nascar"]);
+	Setting::SetConsume(_Consuption);
+	Setting::SetLitres(_Litres);
+	Tanking = _Tanking;
+}
+
+Boolean InitPitLane (Text _Info) {
+	declare Text Info = _Info;
+	declare Integer Len = TL::Length(Info);
+	declare Text Coordinates = "";
+	declare Integer Count = 0;
+
+	PitLane.clear();
+
+	for (Index, 0, Len-1) {
+		//log(TL::SubString(Info, Index, 9));
+		//sleep(1000);
+		if (TL::SubString(Info, Index, 9) == "PITLANE=[") {
+			declare Integer Index2 = Index + 9;
+			while (Index2 < Len && TL::SubString(Info, Index2-1, 1) != "]") {
+				Coordinates = Coordinates ^ TL::SubString(Info, Index2, 2);
+				Count += 1;
+				Index2 += 3;
+			}
+			break;
+		}
+	}
+	// log(Coordinates);
+	if (Count % 3 == 0 && Count > 0) {
+		for (Index, 0, Count / 3-1) {
+			declare Int3 Vector = <0,0,0>;
+			Vector.X = TL::ToInteger(TL::SubString(Coordinates, Index*6, 2));
+			Vector.Y = TL::ToInteger(TL::SubString(Coordinates, Index*6+2, 2));
+			Vector.Z = TL::ToInteger(TL::SubString(Coordinates, Index*6+4, 2));
+			PitLane.add(Vector);
+		}
+		log("PITLANE: Correct point nodes: "^Count/3);
+		log(PitLane);
+	} else {
+		log("PITLANE: Wrong format of PitStop!");
+		Message::SendBigMessage(TL::Compose("""Map has wrong PitLane! Script will not run!"""), 2000, 10);
+		return False;
+	}
+	return True;
+}
+
+Void Clear () {
+	//PlayersFuel.clear();
+	//PlayersPosition.clear();
+	PitLane.clear();
+	foreach (P in Players) {
+		if (!PlayersFuelLayer.existskey(P.User.Login)) continue;
+	}
+}

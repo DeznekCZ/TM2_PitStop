@@ -1,0 +1,61 @@
+/**
+ *	Manialink creator script
+ */
+
+#Const	Version		"2020-05-11"
+#Const	ScriptName	"Libs/DeznekCZ/ManialinkHelper.Script.txt"
+#Const	Author		"DeznekCZ"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+Text Create(Boolean _Debug, Text _Layout, Text _Code) {
+	declare Text FinalText = _Code;
+	
+	if (_Debug) {
+		declare Text[] CodeLines = TL::Split("\n", _Code);
+		declare _nl = 0;
+		
+		FinalText = "";
+		foreach (Line in CodeLines) {
+			FinalText = "\n/*"^_nl^"*/";
+			_nl += 1;
+		}
+		FinalText = TL::SubString(FinalText, 1, TL::Length(FinalText) - 1);
+	}
+	
+	declare Text Manialink_Page = """
+		{{{_Layout}}}
+		<script><!-- {{{FinalText}}} --></script>
+	""";
+	
+	if (_Debug) log(Manialink_Page);
+	
+	G_Debug = False;
+	return Manialink_Page;
+}
+
+Text Events(Text[] _Events) {
+	declare Text Return = "";
+	
+	foreach (Event in _Events) {
+		
+	}
+	
+	return Return;
+}
+
+Text MouseClicked(Text[Text] _Actions) {
+	declare Text Return = "if (Event.Type == CMlScriptEvent::Type::MouseClick) {";
+	
+	foreach (Action in _Actions) {
+		Return = Return ^ """\n			if (Event.ControlId == {{{Action}}})""";
+		Return = Return ^ """\n				{{{_Actions[Action]}}}""";
+		Return = Return ^ """\n			}""";
+	}
+	
+	
+	return """
+			continue;
+		}""";
+}

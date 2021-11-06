@@ -1,0 +1,149 @@
+/**
+ *	Manialink creator script
+ */
+
+#Const	Version		"2020-05-11"
+#Const	ScriptName	"Libs/DeznekCZ/Manialink.Script.txt"
+#Const	Author		"DeznekCZ"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+
+#Const C_Layout   "LAYOUT"
+#Const C_CodeInit "CODE_INIT"
+#Const C_CodeLoop "CODE_LOOP"
+
+Text Create(Boolean _Debug, Text[Text] _Definition) {
+	declare Text FinalText = """
+	#Include "TextLib" as TL
+	#Include "MathLib" as ML
+	#Include "TimeLib" as Time
+
+	main() {
+{{{_Definition[C_CodeInit]}}}
+	while(True) {
+		yield;
+{{{_Definition[C_CodeLoop]}}}
+	}
+}
+""";
+	
+	if (_Debug) {
+		declare Text[] CodeLines = TL::Split("\n", FinalText);
+		declare _nl = 0;
+		
+		FinalText = "";
+		foreach (Line in CodeLines) {
+			FinalText = FinalText ^ """
+/*{{{_nl}}}*/{{{Line}}}""";
+			_nl += 1;
+		}
+		FinalText = TL::SubString(FinalText, 1, TL::Length(FinalText) - 1);
+	}
+	
+	declare Text Manialink_Page = """
+<manialink version="3">
+	<frame z-index="10" >
+{{{_Definition[C_Layout]}}}
+		<script><!-- {{{FinalText}}} --></script>
+	</frame>
+</manialink>
+	""";
+	
+	if (_Debug) log(Manialink_Page);
+	
+	return Manialink_Page;
+}
+
+Text Link(Text _Class, Text _Id) {
+	return """declare {{{_Id}}} = (Page.GetFirstChild("{{{_Id}}}") as {{{_Class}}});""";
+}
+
+Text MlQuad(Text _Id) {
+	return Link("CMlQuad", _Id);
+}
+
+Text MlLabel(Text _Id) {
+	return Link("CMlLabel", _Id);
+}
+
+Text MlFrame(Text _Id) {
+	return Link("CMlFrame", _Id);
+}
+
+Text Events(Text[] _Events) {
+	declare Text Return = "foreach (Event in PendingEvents) {";
+	
+	foreach (Event in _Events) {
+		Return = Return ^ "\n" ^ Event;
+	}
+	
+	return Return ^ """
+			}
+	""";
+}
+
+Text ScriptEvent(Text _EventType, Text _Action) {
+	return """
+				if (Event.Type == CMlScriptEvent::Type::{{{_EventType}}}) {
+{{{_Action}}}
+					continue;
+				}""";
+}
+
+Text MouseClicked(Text[Text] _Actions) {
+	declare Text MouseActions = "";
+	
+	foreach (ControlId => Action in _Actions) {
+		MouseActions = MouseActions ^ """
+					if (Event.ControlId == "{{{ControlId}}}") {
+{{{Action}}}
+						continue;
+					}""";
+	}
+
+	return ScriptEvent("MouseClick", TL::SubString(MouseActions, 1, TL::Length(MouseActions) - 1));
+}
+
+Text ToggleVisible(Text _Id) {
+	return """{{{_Id}}}.Visible = !{{{_Id}}}.Visible;""";
+}
+
+Text RaceEvents(Boolean _Log, Text[Text] _Actions) {
+	declare Text Return = """foreach (Event in RaceEvents) {
+				if ({{{_Log}}}) log(Event.Type);	
+	""";
+	
+	//_InputPlayer
+	declare Text InputPlayer = ""; 
+	foreach (EventType => Action in _Actions) {
+		if (TL::EndsWith(EventType, "_InputPlayer")) continue;
+		InputPlayer = InputPlayer ^ """
+					if (Event.Type == CTmRaceClientEvent::EType::{{{TL::Replace(EventType, "_InputPlayer", "")}}}) {
+						{{{Action}}}
+						continue;
+					}""";
+	}
+	
+	if (TL::Length(InputPlayer) > 0) Return = Return ^ """
+				if (Event.Player.User.Login == InputPlayer.User.Login) { 
+					{{{InputPlayer}}}
+				}
+	""";
+	
+	foreach (EventType => Action in _Actions) {
+		if (!TL::EndsWith(EventType, "_InputPlayer")) continue;
+		Return = Return ^ """
+				if (Event.Type == CTmRaceClientEvent::EType::{{{EventType}}}) {
+					{{{Action}}}
+					continue;
+				}""";
+	}
+	
+	return Return ^ """
+		}
+	""";
+}
+Text RaceEvents(Text[Text] _Actions) {
+	return RaceEvents(False, _Actions);
+}

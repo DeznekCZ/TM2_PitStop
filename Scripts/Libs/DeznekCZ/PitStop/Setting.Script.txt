@@ -1,0 +1,417 @@
+/**
+ *	Setting lib for PitStopMode
+ */
+
+#Const  CompatibleMapTypes  "Race"
+#Const	Version		"2015-07-20"
+#Const	ScriptName	"Libs/DeznekCZ/PitStop/Setting.Script.txt"
+#Const	Author		"DeznekCZ"
+
+#Include "TextLib" as TL
+#Include "MathLib" as ML
+#Include "Libs/Nadeo/Layers2.Script.txt" as Layers
+#Include "Libs/Nadeo/Message.Script.txt" as Message
+#Include "Libs/Nadeo/TrackMania/TM3.Script.txt" as TM
+#Include "Libs/Nadeo/Manialink.Script.txt" as Manialink
+
+// ---------------------------------- //
+// Globals
+// ---------------------------------- //
+// ---------------------------------- //
+declare Text[] Set_Admins;
+declare Real Set_Litres;
+declare Real Set_Cons;
+declare Real Set_RespawnCost;
+declare Integer Set_NbLaps;
+declare Integer Set_EndWarm;
+declare Real Set_Tanking;
+
+declare Integer[Text] Private_LapsChanges;
+declare Integer[Text] Private_EndWarmChanges;
+declare Real[Text] Private_ResCostChanges;
+declare Real[Text] Private_LitresChanges;
+declare Real[Text] Private_ConsChanges;
+
+declare CUILayer[Text] Setting_Frames;
+
+declare Integer Counter;
+
+// ---------------------------------- //
+// Functions
+// ---------------------------------- //
+// ---------------------------------- //
+// ---------------------------------- //
+
+/** Return the version number of the script
+ *
+ *	@return				The version number of the script
+ */
+Text GetScriptVersion() {
+	return Version;
+}
+
+// ---------------------------------- //
+/** Return the name of the script
+ *
+ *	@return				The name of the script
+ */
+Text GetScriptName() {
+	return ScriptName;
+}
+
+Void AddAdmins(Text[] _Admins) {
+	log("Admins added: "^_Admins);
+	foreach (Admin in _Admins) {
+		if (Set_Admins.exists(Admin)) continue;
+		Set_Admins.add(Admin);
+	}
+	log("All admins: "^Set_Admins);
+}
+
+Boolean IsAdmin(CTmPlayer _Player) {
+	return Set_Admins.exists(_Player.User.Login);
+}
+
+Boolean IsAdmin(CTmMlPlayer _Player) {
+	return Set_Admins.exists(_Player.User.Login);
+}
+
+Text[] GetAdmins() {
+	return Set_Admins;
+}
+
+Void SetLitres(Real _Litres) {
+	Set_Litres = _Litres;
+}
+
+Real GetLitres() {
+	return Set_Litres;
+}
+
+Void SetConsume(Real _Cons) {
+	Set_Cons = _Cons;
+}
+
+Real GetConsume() {
+	return Set_Cons;
+}
+
+Void SetRespawnCost(Real _RespawnCost) {
+	Set_RespawnCost = _RespawnCost;
+}
+
+Real GetRespawnCost() {
+	return Set_RespawnCost;
+}
+
+Integer GetNbLaps() {
+	return Set_NbLaps;
+}
+
+Void SetNbLaps(Integer _Laps) {
+	Set_NbLaps = _Laps;
+}
+
+Integer GetEndWarm() {
+	return Set_EndWarm;
+}
+
+Void SetEndWarm(Integer _EndWarm) {
+	Set_EndWarm = _EndWarm;
+}
+
+Void SetTanking(Real _Tanking) {
+	Set_Tanking = _Tanking;
+}
+
+Real GetTanking() {
+	return Set_Tanking;
+}
+
+Void Loop(CTmMode _Mode) {
+	declare Boolean AdminOnline = False;
+	
+	foreach (Admin in Set_Admins) {
+		if (TM::GetPlayer(Admin) != Null) {
+			AdminOnline = True;
+			break;
+		}
+	}
+		
+	if (!AdminOnline) return;
+	// ReadLoop
+	foreach (Admin in Set_Admins) {
+		declare Player = TM::GetPlayer(Admin);
+		if (Player == Null) continue;
+	
+		declare UI <=> _Mode.UIManager.GetUI(Player);
+		if (UI != Null) {
+			
+			declare netread Integer ML_TimeOut for UI = 0;
+			if (!Private_EndWarmChanges.existskey(Admin)) Private_EndWarmChanges[Admin] = ML_TimeOut;
+			SetEndWarm(GetEndWarm() + (ML_TimeOut - Private_EndWarmChanges[Admin]) * 10000);
+			Private_EndWarmChanges[Admin] = ML_TimeOut;
+			
+			declare netread Integer ML_NbLapsOut for UI = GetNbLaps();
+			if (ML_NbLapsOut != GetNbLaps()) SetNbLaps(ML_NbLapsOut);
+			
+			declare netread Real ML_RespawnOut for UI = 0.0;
+			if (!Private_ResCostChanges.existskey(Admin)) Private_ResCostChanges[Admin] = ML_RespawnOut;
+			SetRespawnCost(GetRespawnCost() + ML_RespawnOut - Private_ResCostChanges[Admin]);
+			Private_ResCostChanges[Admin] = ML_RespawnOut;
+			
+			declare netread Real ML_LitresOut for UI = 0.0;
+			if (!Private_LitresChanges.existskey(Admin)) Private_LitresChanges[Admin] = ML_LitresOut;
+			SetLitres(GetLitres() + ML_LitresOut - Private_LitresChanges[Admin]);
+			Private_LitresChanges[Admin] = ML_LitresOut;
+			
+			declare netread Real ML_ConsOut for UI = 0.0;
+			if (!Private_ConsChanges.existskey(Admin)) Private_ConsChanges[Admin] = ML_ConsOut;
+			SetConsume(GetConsume() + ML_ConsOut - Private_ConsChanges[Admin]);
+			Private_ConsChanges[Admin] = ML_ConsOut;
+		}
+	}
+	//WriteLoop
+	foreach (Admin in Set_Admins) {
+		declare Player = TM::GetPlayer(Admin);
+		if (Player == Null) continue;
+	
+		declare UI <=> _Mode.UIManager.GetUI(Player);
+		if (UI != Null) {
+		
+			declare netwrite Integer ML_NbLaps for UI = GetNbLaps();
+			ML_NbLaps = GetNbLaps();
+			
+			declare netwrite Real ML_Respawn for UI = GetRespawnCost();
+			ML_Respawn = GetRespawnCost();
+			
+			declare netwrite Real ML_Litres for UI = GetLitres();
+			ML_Litres = GetLitres();
+			
+			declare netwrite Real ML_Cons for UI = GetConsume();
+			ML_Litres = GetLitres();
+		}
+	}
+}
+
+Text Manialink_Init(CTmPlayer _Player) {
+	declare Text returnValue = """""";
+	if (Set_Admins.exists(_Player.User.Login))
+	{
+		declare Boolean Catch;
+		Catch = Private_LapsChanges.removekey(_Player.User.Login);
+		Catch = Private_EndWarmChanges.removekey(_Player.User.Login);
+		Catch = Private_ResCostChanges.removekey(_Player.User.Login);
+		Catch = Private_LitresChanges.removekey(_Player.User.Login);
+		returnValue = returnValue ^ """
+			declare PSMenu = (Page.GetFirstChild("PSMenu") as CMlFrame);
+			declare L_NbLapsValue = (Page.GetFirstChild("LapsValue") as CMlEntry);
+			declare L_Respawn = (Page.GetFirstChild("RespawnCountLabel") as CMlLabel);
+			declare L_Litres = (Page.GetFirstChild("LitresCountLabel") as CMlLabel);
+			declare L_Cons = (Page.GetFirstChild("ConsCountLabel") as CMlLabel);
+			PSMenu.Hide();
+			
+			declare netwrite Integer ML_NbLapsOut for UI = {{{GetNbLaps()}}};
+			declare netwrite Integer ML_TimeOut for UI = 0;
+			declare netwrite Real ML_RespawnOut for UI = 0.0;
+			declare netwrite Real ML_LitresOut for UI = 0.0;
+			declare netwrite Real ML_ConsOut for UI = 0.0;
+			
+			declare netread Integer ML_NbLaps for UI = {{{GetNbLaps()}}};
+			declare netread Real ML_Respawn for UI = 0.0;
+			declare netread Real ML_Litres for UI = 0.0;
+			declare netread Real ML_Cons for UI = 0.0;
+		""";
+	}
+	return returnValue;
+}
+
+Text Manialink_LoopStart(CTmPlayer _Player)
+{
+	return """""";
+}
+
+Text Manialink_MouseClick(CTmPlayer _Player)
+{
+	declare Text returnValue = """""";
+	if (Set_Admins.exists(_Player.User.Login))
+	{
+	  returnValue = returnValue ^ """
+			if (Event.ControlId == "Setting_Open") { PSMenu.Show(); continue; }
+			if (Event.ControlId == "MenuExit") { PSMenu.Hide(); continue; }
+			if (Event.ControlId == "TimeAdd1m") { ML_TimeOut += 6; continue; }
+			if (Event.ControlId == "TimeAdd10") { ML_TimeOut += 1; continue; }
+			if (Event.ControlId == "TimeRem1m") { ML_TimeOut -= 6; continue; }
+			if (Event.ControlId == "TimeRem10") { ML_TimeOut -= 1; continue; }
+			if (Event.ControlId == "RespawnAdd") { ML_RespawnOut += 0.1; continue; }
+			if (Event.ControlId == "RespawnRem") { ML_RespawnOut -= 0.1; continue; }
+			if (Event.ControlId == "LitresAdd") { ML_LitresOut += 0.1; continue; }
+			if (Event.ControlId == "LitresRem") { ML_LitresOut -= 0.1; continue; }
+			if (Event.ControlId == "ConsAdd") { ML_ConsOut += 0.1; continue; }
+			if (Event.ControlId == "ConsRem") { ML_ConsOut -= 0.1; continue; }
+		""";
+	}
+	return returnValue;
+}
+
+Text Manialink_AnyEvent(CTmPlayer _Player)
+{
+	return """
+			if (Event.Type == CMlScriptEvent::Type::EntrySubmit && Event.ControlId == "LapsValue") 
+				{ ML_NbLapsOut = TL::ToInteger(L_NbLapsValue.Value); continue; }
+	""";
+}
+
+Text Manialink_LoopEnd(CTmPlayer _Player)
+{
+	declare Text returnValue = """""";
+	if (Set_Admins.exists(_Player.User.Login))
+	{
+	  returnValue = returnValue ^ """
+			L_Respawn.SetText(ML::NearestInteger(ML_Respawn*10)/10.0^"");
+			L_Litres.SetText(ML::NearestInteger(ML_Litres*10)/10.0^"");
+			L_Cons.SetText(ML::NearestInteger(ML_Cons*10)/10.0^"");
+		""";
+	}
+	return returnValue;
+}
+
+Text Manialink_Frame(CTmPlayer _Player) {
+	declare Text returnValue = """""";
+	if (Set_Admins.exists(_Player.User.Login))
+	{
+		returnValue = returnValue ^ """
+			<quad posn="153 12" z-index="0" sizen="5 5" bgcolor="FFFA" style="Icons128x32_1" 
+			   		substyle="Settings" scriptevents="1" id="Setting_Open" />
+			
+			<frame id="PSMenu" posn="0 0 0">
+			
+				<!-- WarmUpSettings -->
+				<label posn="-48 21 0" sizen="93 5" text="Warm Up Settings" id="WarmUpSettings" style="TextRaceChat"/>
+				<label posn="-47 18 1" sizen="41 5" text="Warm up time:" id="TimeLabel"/>
+				
+				<!-- FuelSettings -->
+				<label posn="-48 4 0" sizen="93 5" text="Fuel Settings" id="FuelSettings" style="TextRaceChat"/>
+				<label posn="-47 1 1" sizen="41 5" text="Respawn cost (litres):" id="RespawnLabel"/>
+				<label posn="35 1 1" sizen="16 5" text="2.0" id="RespawnCountLabel" halign="center"/>
+				<label posn="-47 -6 1" sizen="61 5" text="Fueltank capacity (litres):" id="LitresLabel"/>
+				<label posn="35 -6 1" sizen="17 5" text="20.0" id="LitresCountLabel" halign="center"/>
+				<label posn="-47 -13 1" sizen="61 5" text="Fuel consuption (litres/100km):" id="ConsLabel"/>
+				<label posn="35 -13 1" sizen="17 5" text="20.0" id="ConsCountLabel" halign="center"/>
+				
+				<!-- RaceSettings -->
+				<label posn="-48 -20 0" sizen="93 5" text="Race Settings" id="RaceSettings" style="TextRaceChat"/>
+				<label posn="-47 -23 1" sizen="41 5" text="Laps count in race:" id="LapsLabel"/>
+				<entry posn="49 -23 1" sizen="30 5" default="{{{GetNbLaps()}}}" id="LapsValue" 
+							 halign="right" style="Manialink_Body" />
+				
+				<quad id="MenuBack" posn="0 25 0" sizen="100 55" 
+							halign="center" style="Bgs1InRace" substyle="BgWindow1"  valign="top"/>
+				<quad id="MenuTitle" posn="0 30 0" sizen="100 10" 
+							valign="center" halign="center" style="Bgs1InRace" substyle="BgWindow2" />
+				<label id="MenuTitleLabel" posn="-45 30 1" sizen="100 10" 
+							 valign="center" halign="left" style="TextTitle1" text="$f00P$fffit$f00S$ffftop settings" />
+				<quad id="MenuExit" posn="50 25 10" sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Close" scriptevents="1" />
+				<label id="TimeAdd1m" posn="35 20 12" sizen="20 5" 
+							 text="+1m" textcolor="000000FF" style="CardButtonMediumXS" scriptevents="1"/>
+				<label id="TimeRem1m" posn="-1 20 12" sizen="20 5" 
+							 text="-1m" textcolor="000000FF" style="CardButtonMediumXS" scriptevents="1"/>
+				<label id="TimeAdd10" posn="23 20 12" sizen="20 5" 
+				       text="+10s" textcolor="000000FF" style="CardButtonMediumXS" scriptevents="1"/>
+				<label id="TimeRem10" posn="11 20 12" sizen="20 5" 
+							 text="-10s" textcolor="000000FF" style="CardButtonMediumXS" scriptevents="1"/>
+				<quad id="RespawnAdd" posn="49 -6 10" sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Add" scriptevents="1"  />
+				<quad id="RespawnRem" posn="31 -6 10"  sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Sub" scriptevents="1" />
+				<quad id="LitresAdd" posn="49 -13 10" sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Add" scriptevents="1"  />
+				<quad id="LitresRem" posn="31 -13 10"  sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Sub" scriptevents="1" />
+				<quad id="ConsAdd" posn="49 -20 10" sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Add" scriptevents="1"  />
+				<quad id="ConsRem" posn="31 -20 10"  sizen="10 10" 
+							valign="bottom" halign="right" style="Icons64x64_1" substyle="Sub" scriptevents="1" />
+			</frame>
+		""";
+	}
+	return returnValue;
+}
+
+Text Manialink(CTmPlayer _Player) {
+	if (!Set_Admins.exists(_Player.User.Login)) return """""";
+
+	return """
+		{{{Manialink_Frame(_Player)}}}
+		<script><!--    
+			#Include "MathLib" as ML
+			#Include "TextLib" as TL
+    
+			main () {
+			  {{{Manialink_Init(_Player)}}}
+			
+				while(True)
+				{
+					yield;
+					
+					{{{Manialink_LoopStart(_Player)}}}
+					
+					foreach (Event in PendingEvents)
+					{
+						if (Event.Type == CMlScriptEvent::Type::MouseClick)
+						{
+							{{{Manialink_MouseClick(_Player)}}}
+						}
+						else
+						{
+							{{{Manialink_AnyEvent(_Player)}}}
+						}
+					}
+					
+					{{{Manialink_LoopEnd(_Player)}}}
+				}
+			}
+		--></script>
+	""";
+}
+
+// ---------------------------------- //
+// Manialink remove instance
+// ---------------------------------- //
+Void Destroy(CTmPlayer _Player)
+{
+	if (!Set_Admins.exists(_Player.User.Login)) return;
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "Setting_Frame_"^Login;
+	
+	if (!Setting_Frames.existskey(Frame)) return;
+
+	Layers::Detach(Frame);
+	Layers::Destroy(Frame);
+}
+
+// ---------------------------------- //
+// Manialink create instance
+// ---------------------------------- //
+Void Init(CTmPlayer _Player)
+{
+	if (!Set_Admins.exists(_Player.User.Login)) return;
+	Destroy(_Player);
+	
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "Setting_Frame_"^Login;
+	declare Text Frame_Manialink = Manialink(_Player);
+	
+	//log(Frame_Manialink);
+	
+	Layers::Create(Frame, Frame_Manialink);
+	Layers::Attach(Frame, _Player);
+	Layers::SetType(Frame, CUILayer::EUILayerType::Normal);
+	
+	declare LayerFuelFrame <=> Layers::Get(Frame);
+	Setting_Frames[Frame] = LayerFuelFrame;
+	
+	// Read/Write variables
+		// TODO
+}

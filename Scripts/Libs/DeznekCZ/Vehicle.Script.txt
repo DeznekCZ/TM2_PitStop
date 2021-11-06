@@ -1,0 +1,629 @@
+/**
+ *	WarmUp library
+ */
+#Const	Version		"2017-06-13"
+#Const	ScriptName	"Libs/DeznekCZ/Vehicle.Script.txt"
+
+// ---------------------------------- //
+// Libraries
+// ---------------------------------- //
+#Include "TextLib" as TL
+#Include "Libs/Nadeo/Layers2.Script.txt" as Layers
+#Include "Libs/Nadeo/TrackMania/Events.Script.txt" as Events
+
+#Include "Libs/DeznekCZ/ManialinkHelper.Script.txt" as MLS
+#Include "Libs/DeznekCZ/PitStop/Setting.Script.txt" as Setting
+#Include "Libs/DeznekCZ/Records/Local.Script.txt" as LocalRecords
+
+// ---------------------------------- //
+// @section Globals
+// ---------------------------------- //
+declare CUILayer[Text] Vehicle_Frames;
+declare Integer _pos;
+declare Integer _compileLine;
+
+// ---------------------------------- //
+// @section Manialink Page
+// ---------------------------------- //
+
+// ---------------------------------- //
+// Manialink frame
+// ---------------------------------- //
+Integer _nextPos()
+{
+	_pos -= 4;
+	return _pos;
+}
+Integer _nl()
+{
+	_compileLine += 1;
+	return _compileLine;
+}
+
+// ---------------------------------- //
+// Manialink remove instance
+// ---------------------------------- //
+Void Destroy(CTmPlayer _Player)
+{
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "Vehicle_Frame_"^Login;
+	
+	if (!Vehicle_Frames.existskey(Frame)) return;
+
+	Layers::Detach(Frame);
+	Layers::Destroy(Frame);
+}
+
+// ---------------------------------- //
+// Manialink create instance
+// ---------------------------------- //
+Void Init(CTmPlayer _Player)
+{
+	Destroy(_Player);
+	
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "Vehicle_Frame_"^Login;
+
+	_pos = 84;
+	declare Text Frame_Manialink = MLS::Create(/* DEBUG */ True, [
+		MLS::C_Layout =>
+		"""
+		  <frame id="Vehicle_Frame_Details" posn="0 0 0" halign="right" valign="top" hidden="True" >
+		    <quad posn="-157 87" z-index="0" size="55 74" bgcolor="FFFA" style="Bgs1" substyle="BgCard"/>
+		  
+		    <!-- Distance driven -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Distance driven:" textsize="2"/>
+		    <label id="Vehicle_Distance" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_Distance_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="m" textsize="2"/>
+		  
+		    <!-- Gas pedal -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Gas pedal:" textsize="2"/>
+		    <label id="Vehicle_Gas" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- Brake pedal -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Brake pedal:" textsize="2"/>
+		    <label id="Vehicle_Brake" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- Speed -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Speed:" textsize="2"/>
+		    <label id="Vehicle_Speed" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_Speed_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="Km/h" textsize="2"/>
+		  
+		    <!-- RPM -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Engine RPM:" textsize="2"/>
+		    <label id="Vehicle_RPM" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_RPM_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="RPM" textsize="2"/>
+		  
+		    <!-- Gear -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Gear:" textsize="2"/>
+		    <label id="Vehicle_Gear" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- Gear ratio -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Gear ratio:" textsize="2"/>
+		    <label id="Vehicle_GearRatio" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- Steering wheel -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Steering wheel:" textsize="2"/>
+		    <label id="Vehicle_Steer" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- Slope -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Slope:" textsize="2"/>
+		    <label id="Vehicle_Slope" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		
+		    <!-- Consuption -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Consuption:" textsize="2"/>
+		    <label id="Vehicle_Consuption" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		
+		    <!-- LapDistance -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="LapDistance:" textsize="2"/>
+		    <label id="Vehicle_LapDistanceLabel" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  
+		    <!-- RPM at 100 Km/h -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="RPM at 100 Km/h:" textsize="2"/>
+		    <label id="Vehicle_RPM100" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_RPM100_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="RPM" textsize="2"/>
+		  
+		    <!-- Act fuel -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Fuel:" textsize="2"/>
+		    <label id="Vehicle_Fuel" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_Fuel_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="l" textsize="2"/>
+		  
+		    <!-- Fuel per 100 -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Real consuption:" textsize="2"/>
+		    <label id="Vehicle_ConsReal" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		    <label id="Vehicle_ConsReal_Unit" posn="-109 {{{_pos}}}" z-index="1" size="16 5" text="l/100km" textsize="2"/>
+		  
+		    <!-- Damage -->
+		    <label posn="-154 {{{_nextPos()}}}" z-index="1" size="44 5" text="Body damage:" textsize="2"/>
+		    <label id="Vehicle_Damage" posn="-110 {{{_pos}}}" z-index="1" size="16 5" text="0" textsize="2" halign="right"/>
+		  </frame>
+			
+		  <frame id="Vehicle_Frame_Player" >
+		  	<quad posn="105 -65 5" size="15 15" z-index="1" style="Icons128x128_1" substyle="Launch"
+		  				id="Vehicle_ToServis" hidden="True"/>
+		  
+				<frame id="Vehicle_Frame_FuelBar" posn="156.5 -86.5">
+				
+					<!-- Background of fuel bar -->
+					<quad id="Vehicle_Quad_FuelBackground" posn="-40 0" z-index="1" size="40 6" 
+					      bgcolor="FFFFFF00" halign="left" valign="center" style="Bgs1" substyle="BgMetalBar" 
+							  modulatecolor="FFFFFFFF"/>
+					<quad id="Vehicle_Quad_FuelValue" posn="-40 0" z-index="2" size="40 6" 
+					      bgcolor="FFFFFFFF" halign="left" valign="center" style="Bgs1" substyle="BgMetalBar"   
+							  modulatecolor="FF0000FF" />
+					
+					<!-- Litres display -->
+					<!-- Unit -->
+					<label id="Vehicle_Label_FuelUnit" hidden="0" posn="-3.5 0" z-index="3"
+					       size="14 10" valign="center" 
+					       text="l" textsize="3" textfont="RajdhaniMono" class="text-default" textcolor="6D6D6DFF"/>
+					<!-- Value -->
+					<label id="Vehicle_Label_FuelValue" hidden="0" posn="-4.5 0" z-index="3"
+					       size="21.1 9.78" halign="right" valign="center" 
+					       text="0 / 0" textsize="3" textfont="RajdhaniMono" class="text-default" textcolor="6D6D6DFF"/>
+					<!-- Prevision -->
+					<label id="Vehicle_Label_FuelPrevision" posn="-41 0" z-index="3" size="61.3 5" 
+					       text="~" halign="right" textfont="RajdhaniMono" valign="center"/>
+					
+					<!-- Info -->
+			  	<quad posn="-2.5 2.5" size="5 5" z-index="10" value="1" ratio="1" scriptevents="1"
+			  				id="Vehicle_Frame_Details_Toggle" style="Icons64x64_1" substyle="TrackInfo" />
+				</frame>
+					
+				<frame id="Vehicle_DamageModel"  posn="130 -60" hidden="0" >
+					<frame posn="24 0" >
+						<!-- Body -->
+						<gauge id="Vehicle_DamageBody" posn="0 0" sizen="20 10" z-index="2"
+									 style="ProgressBar" color="FFFF" halign="center" valign="center" ratio="0" rot="90"  drawbg="1"/>
+					
+						<!-- Wheels -->
+						<gauge id="Vehicle_DamageWheelFR" posn="3 5 5" sizen="6 7" z-index="3"
+									 style="ProgressBar" color="FFFF" halign="center" valign="center" drawbg="1" />
+						<gauge id="Vehicle_DamageWheelFL" posn="-3 5 5" sizen="6 7" z-index="3"  
+									 style="ProgressBar" color="FFFF" halign="center" valign="center" drawbg="1" />
+						<gauge id="Vehicle_DamageWheelRR" posn="3 -5 5" sizen="6 7" z-index="3"  
+									 style="ProgressBar" color="FFFF" halign="center" valign="center" drawbg="1" />
+						<gauge id="Vehicle_DamageWheelRL" posn="-3 -5 5" sizen="6 7" z-index="3"  
+									 style="ProgressBar" color="FFFF" halign="center" valign="center" drawbg="1" />
+					</frame>
+				</frame>
+			</frame>
+		
+			<!-- PitStopMessage -->
+	    <label id="Vehicle_TankingMessage" posn="0 0" size="150 20" text="" textsize="5"
+	  				 halign="center" valign="center" textemboss="1" autonewline="1" translate="0" style="TextValueMediumSm"/>
+		""",
+
+		MLS::C_CodeInit =>
+		"""
+			{{{MLS::Link("CMlFrame", "Vehicle_Frame_Player")}}}
+			{{{MLS::Link("CMlFrame", "Vehicle_Frame_Details")}}}
+			{{{MLS::Link("CMlQuad", "Vehicle_Frame_Details_Toggle")}}}
+
+			{{{MLS::Link("CMlLabel", "Vehicle_Distance")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Gas")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Brake")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Steer")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Speed")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Slope")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_RPM")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_RPM100")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Consuption")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_ConsReal")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Gear")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_GearRatio")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Fuel")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_TankingMessage")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Label_FuelPrevision")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_LapDistanceLabel")}}}
+			{{{MLS::Link("CMlLabel", "Vehicle_Damage")}}}
+			
+			{{{MLS::Link("CMlFrame", "Vehicle_DamageModel")}}}
+			{{{MLS::Link("CMlGauge", "Vehicle_DamageBody")}}}
+			{{{MLS::Link("CMlGauge", "Vehicle_DamageWheelFR")}}}
+			{{{MLS::Link("CMlGauge", "Vehicle_DamageWheelFL")}}}
+			{{{MLS::Link("CMlGauge", "Vehicle_DamageWheelRR")}}}
+			{{{MLS::Link("CMlGauge", "Vehicle_DamageWheelRL")}}}
+
+			declare Integer[Integer] GearRatio_Count;
+			declare Real[Integer] GearRatio_Value;
+		
+			declare Integer Consuption_Count;
+			declare Real Consuption_Value;
+
+			declare Real Consuption_Distance = 0.;
+			declare Real Last_Distance = 0.;
+			declare Integer Last_Time = Now;
+			declare Integer ServiceMessage_Time = Now;
+
+			// Temporary data
+			declare Real Vehicle_FuelTank_tmpOut = {{{Setting::GetLitres()}}};
+			declare Real Vehicle_FuelConsumedTotal = 0.;
+			declare Real Map_LapDistance = 0.;
+			declare Real Map_LapConsuption = 0.;
+			declare Real Map_LastDistance = 0.;
+			declare Real Map_BeforeDistance = 0.;
+			declare Real Map_LapCount = 0.;
+			declare Boolean Map_FinishReached = False;
+			declare Boolean DetailsVisibility = False;
+			declare Boolean Service_Done = False;
+			declare Real Vehicle_DamageValue = 0.;
+		
+			// Netwrites
+			declare netwrite Real Vehicle_FuelTank_Out for UI = {{{Setting::GetLitres()}}};
+			declare netwrite Real Vehicle_Consuption_Out for UI = 0.;
+			declare netwrite Real Vehicle_Distance_Out for UI = 0.;
+			declare netwrite Boolean Vehicle_CanRace for UI = True;
+			declare netwrite Real Vehicle_LapConsuption for UI = 0.;
+			declare netwrite Real Vehicle_LapDistance for UI = 0.;
+		
+			// Netreads
+			declare netread Boolean Vehicle_IsTanking for UI = False;
+			declare netread Real Vehicle_TankCapacity for UI = {{{Setting::GetLitres()}}};
+			declare netread Real Vehicle_RespawnCost for UI = {{{Setting::GetRespawnCost()}}};
+			declare netread Real Vehicle_ConsuptionBase for UI = {{{Setting::GetConsume() - 20}}};
+		
+			// RACE
+			{{{MLS::Link("CMlLabel", "Vehicle_Label_FuelValue")}}}
+			{{{MLS::Link("CMlQuad", "Vehicle_ToServis")}}}
+			{{{MLS::Link("CMlQuad", "Vehicle_Quad_FuelBackground")}}}
+			{{{MLS::Link("CMlQuad", "Vehicle_Quad_FuelValue")}}}
+			
+			// LocalRecords
+			{{{LocalRecords::RequestInit()}}}
+		""",
+
+		MLS::C_CodeLoop =>
+		"""
+			{{{LocalRecords::RequestCheck()}}}
+		
+			if (!InputPlayer.IsSpawned || InputPlayer.RaceState == CTmMlPlayer::ERaceState::BeforeStart) {
+				Vehicle_Frame_Player.Visible = InputPlayer.RaceState != CTmMlPlayer::ERaceState::Finished;
+				Vehicle_DamageModel.Visible = False;
+				Vehicle_Frame_Details.Visible = DetailsVisibility;
+				Vehicle_FuelTank_tmpOut = Vehicle_TankCapacity;
+				Vehicle_FuelConsumedTotal = 0.;
+				Vehicle_CanRace = True;
+				Vehicle_Label_FuelPrevision.Value = "";
+				Map_LapDistance = 0.;
+				Map_LapConsuption = 0.;
+				Map_LastDistance = 0.;
+				Map_BeforeDistance = 0.;
+				Map_LapCount = 0.;
+				Map_FinishReached = False;
+				Service_Done = False;
+				
+				declare tank = TL::FormatReal(Vehicle_TankCapacity, 1, True, True);
+				Vehicle_Label_FuelValue.Value = tank ^ "/" ^ tank;
+				Vehicle_Quad_FuelValue.ModulateColor = <0.,1.,0.>;
+			}
+			else if (InputPlayer.RaceState == CTmMlPlayer::ERaceState::Running) {
+				Vehicle_Frame_Player.Visible = True;
+				Vehicle_DamageModel.Visible = True;
+				Vehicle_Frame_Details.Visible = DetailsVisibility;
+				Vehicle_Distance.Value = "" ^ ML::NearestInteger(InputPlayer.Distance);
+				Vehicle_Gas.Value = "" ^ InputPlayer.InputGasPedal;
+				Vehicle_Brake.Value = "" ^ InputPlayer.InputIsBraking;
+				Vehicle_Steer.Value = "" ^ InputPlayer.InputSteer;
+				Vehicle_Speed.Value = "" ^ ML::Abs(InputPlayer.Speed * 3.6);
+				Vehicle_Slope.Value = "" ^ InputPlayer.Upwardness;
+				Vehicle_RPM.Value = "" ^ InputPlayer.EngineRpm;
+				Vehicle_Gear.Value = "" ^ InputPlayer.EngineCurGear;
+		
+				declare Real tmp_GearRatio = 0.;
+				if (InputPlayer.Speed == 0) {
+					Vehicle_GearRatio.Value = "0";
+				} else {
+					tmp_GearRatio = InputPlayer.EngineRpm / ML::Abs(InputPlayer.Speed);
+					if (InputPlayer.EngineCurGear < 5 && GearRatio_Count.existskey(InputPlayer.EngineCurGear)) {
+						declare Integer tmp_GearRatio_Count = GearRatio_Count[InputPlayer.EngineCurGear];
+				  tmp_GearRatio = GearRatio_Value[InputPlayer.EngineCurGear];
+						tmp_GearRatio = ((InputPlayer.EngineRpm / ML::Abs(InputPlayer.Speed)) + (tmp_GearRatio_Count * tmp_GearRatio));
+						tmp_GearRatio = tmp_GearRatio / (1 + tmp_GearRatio_Count);
+						GearRatio_Value[InputPlayer.EngineCurGear] = tmp_GearRatio;
+						GearRatio_Count[InputPlayer.EngineCurGear] = 1 + tmp_GearRatio_Count;
+					}
+					else if (InputPlayer.EngineCurGear < 5) {
+						GearRatio_Value[InputPlayer.EngineCurGear] = tmp_GearRatio;
+						GearRatio_Count[InputPlayer.EngineCurGear] = 1;
+					}
+				}
+
+				Vehicle_GearRatio.Value = "" ^ tmp_GearRatio;
+				Vehicle_RPM100.Value = "" ^ (tmp_GearRatio * (100 / 3.6));
+		
+				declare Real Consuption = 0.;
+				if (InputPlayer.BonusModeEventType == CTmMlPlayer::ETmBonusModeEventType::FreeWheeling) {
+				}
+				else if (InputPlayer.InputGasPedal > 0 && InputPlayer.RaceState == CTmMlPlayer::ERaceState::Running) {
+					if (tmp_GearRatio != 0) {
+						declare Real effectiveRPM = (tmp_GearRatio * (100 / 3.6));
+						if (InputPlayer.EngineRpm < effectiveRPM) {
+							declare Real neg_effectiveRPM = (11000 - effectiveRPM);
+							if (neg_effectiveRPM < 1000) { neg_effectiveRPM = 1000.; }
+							Consuption = (InputPlayer.EngineRpm / neg_effectiveRPM)
+									   * InputPlayer.InputGasPedal * Vehicle_ConsuptionBase
+									   * (InputPlayer.Distance - Last_Distance) / 100000;
+						}
+						else {
+							Consuption = (InputPlayer.EngineRpm / effectiveRPM)
+									   * InputPlayer.InputGasPedal * Vehicle_ConsuptionBase
+									   * (InputPlayer.Distance - Last_Distance) / 100000;
+						}
+					}
+				}
+				else if ( InputPlayer.EngineRpm < 1000 
+						   && InputPlayer.InputGasPedal == 0 
+						   && InputPlayer.RaceState == CTmMlPlayer::ERaceState::Running
+						) {
+					Vehicle_RPM.Value = "1000";
+					Consuption = .1 / 100000;
+				}
+				Vehicle_Consuption.Value = "" ^ Consuption;
+				Vehicle_FuelTank_tmpOut -= Consuption;
+				Vehicle_FuelConsumedTotal += Consuption;
+		
+				if (Vehicle_IsTanking && !Service_Done) {
+					if (InputPlayer.Speed == 0) {
+						declare Real TankAble = {{{Setting::GetTanking()}}} / (Now - Last_Time);
+						
+						TankAble = ML::Max(
+							0., 
+							ML::Min(
+								Vehicle_TankCapacity - Vehicle_FuelTank_tmpOut, 
+								TankAble
+							)
+						);
+						
+						Vehicle_TankingMessage.Value = _("Service in progress!");
+						ServiceMessage_Time = Now + 1000;
+						
+						Vehicle_FuelTank_tmpOut += TankAble;
+						if (Vehicle_FuelTank_tmpOut >= (Vehicle_TankCapacity-0.1)) {
+							ServiceMessage_Time = Now + 3000;
+							Vehicle_TankingMessage.Value = _("Service done!");
+							Service_Done = True;
+						}
+					}
+					else if (InputPlayer.Speed > 0) {
+						Vehicle_TankingMessage.Value = _("Stop for service!");
+						ServiceMessage_Time = Now + 1000;
+					}
+				}
+				else if (Vehicle_IsTanking && Service_Done) {
+					// No change
+				}
+				else {
+					Service_Done = False;
+				}
+				Last_Time = Now;
+
+				{{{
+					MLS::Events([
+						MLS::MouseClicked([
+							"Vehicle_Frame_Details_Toggle" => MLS::ToggleVisible("Vehicle_Frame_Details")
+						])
+					])
+				}}}
+				{{{
+					MLS::RaceEvents([
+						"Respawn_InputPlayer" => """
+								Vehicle_FuelTank_tmpOut -= Vehicle_RespawnCost;
+								if (Vehicle_FuelTank_tmpOut <= 0) Vehicle_CanRace = False;
+							"""
+						,
+						"WayPoint_InputPlayer" => """
+							if (Event.IsEndLap) {
+								declare Real LLD = InputPlayer.Distance - Map_BeforeDistance;
+								
+								if (Map_BeforeDistance > 0) {
+									Map_LapDistance = (Map_LapDistance * Map_LapCount + LLD) / (Map_LapCount + 1);
+								}
+								else {
+									Map_LapDistance = LLD;
+								}
+								Vehicle_LapDistanceLabel.Value = "" ^ Map_LapDistance;
+								Vehicle_LapDistance = Map_LapDistance;
+								Vehicle_LapConsuption = Vehicle_FuelConsumedTotal - Map_LapConsuption;
+								
+								{{{LocalRecords::SendRecord(
+										"Vehicle_FuelConsumedTotal - Map_LapConsuption", 
+										"Map_LapDistance", 
+										"Event.LapTime")
+								}}}
+								
+								// Reset Values
+								Map_BeforeDistance = InputPlayer.Distance;
+								Map_LapCount += 1;
+								Map_LapConsuption = Vehicle_FuelConsumedTotal;
+							}
+						"""
+					])
+				}}}
+				DetailsVisibility = Vehicle_Frame_Details.Visible;
+
+				declare Real Vehicle_Consuption_tmpOut = 0.;
+				if (InputPlayer.Distance > 0)
+					Vehicle_Consuption_tmpOut	= Vehicle_FuelConsumedTotal
+												/ (InputPlayer.Distance / 100000);
+				Vehicle_ConsReal.Value = "" ^ Vehicle_Consuption_tmpOut;
+				Last_Distance = InputPlayer.Distance;
+				Vehicle_Fuel.Value = "" ^ Vehicle_FuelTank_tmpOut ^ "/" ^ Vehicle_TankCapacity;
+				Vehicle_FuelTank_Out = Vehicle_FuelTank_tmpOut;
+				Vehicle_Consuption_Out = Vehicle_Consuption_tmpOut;
+				Vehicle_Distance_Out = InputPlayer.Distance;
+				
+				if (Vehicle_FuelTank_tmpOut <= 0) {
+					// Message if was despawned because of damage
+					ServiceMessage_Time = Now + 3000;
+					Vehicle_TankingMessage.Value = _("You are out of fuel!");
+					Vehicle_CanRace = False;
+					continue;
+				}
+				
+				// RACE	
+				declare Real GaugeRatio = Vehicle_FuelTank_tmpOut / Vehicle_TankCapacity;
+				if (GaugeRatio < 0) GaugeRatio = 0.;
+				if (GaugeRatio > 1) GaugeRatio = 1.;
+				Vehicle_Quad_FuelValue.Size = < 
+						GaugeRatio * Vehicle_Quad_FuelBackground.Size.X, 
+						Vehicle_Quad_FuelBackground.Size.Y
+				>;
+				
+				Vehicle_Label_FuelValue.Value = TL::FormatReal(Vehicle_FuelTank_tmpOut, 1, True, True)
+				                              ^ "/"
+				                              ^ TL::FormatReal(Vehicle_TankCapacity, 1, True, True);
+
+				// APPROX
+				if (Vehicle_Consuption_tmpOut > 0) {
+					declare Real approxKM = 100 * Vehicle_FuelTank_tmpOut / Vehicle_Consuption_tmpOut;
+					declare Text T_approxKM = "~" ^ TL::FormatReal(approxKM, 3, False, False) ^ " KM";
+					if (Map_LapDistance > 0) {
+						declare Real approxLaps = (approxKM * 1000) / Map_LapDistance;
+						Vehicle_Label_FuelPrevision.Value = T_approxKM ^ " Laps ~" ^ TL::FormatReal(approxLaps, 1, True, True);
+						
+						Vehicle_ToServis.Visible = approxLaps <= 2; // TODO or wheels
+						if (approxLaps > 3.)     { Vehicle_Quad_FuelValue.ModulateColor = <0.,1.,0.>; }
+						else if (approxLaps > 2) { Vehicle_Quad_FuelValue.ModulateColor = <1.,1.,0.>; }
+						else                     { Vehicle_Quad_FuelValue.ModulateColor = <1.,0.,0.>; }
+					}
+					else {
+						Vehicle_ToServis.Visible = GaugeRatio <= 0.25; // TODO or wheels
+						Vehicle_Label_FuelPrevision.Value = T_approxKM;
+				
+						if (GaugeRatio > 0.5)       { Vehicle_Quad_FuelValue.ModulateColor = <0.,1.,0.>; }
+						else if (GaugeRatio > 0.25) { Vehicle_Quad_FuelValue.ModulateColor = <1.,1.,0.>; }
+						else                        { Vehicle_Quad_FuelValue.ModulateColor = <1.,0.,0.>; }
+					}
+				}
+				
+				Vehicle_DamageValue = InputPlayer.DamageHullRatio;
+				
+				if (Vehicle_DamageValue > 0.75) {
+					// Message if was despawned because of damage
+					ServiceMessage_Time = Now + 3000;
+					Vehicle_TankingMessage.Value = _("Your vehicle is damaged!");
+					Vehicle_CanRace = False;
+					continue;
+				}
+				
+				Vehicle_Damage.Value = "" ^ Vehicle_DamageValue;
+				Vehicle_DamageModel.Visible = Vehicle_DamageValue > 0;
+				if (Vehicle_DamageValue > 0) { // TODO Wheels
+					// TODO color of body to 0.75
+				
+					Vehicle_DamageModel.Visible = True;
+					declare Real r = 1.;
+					declare Real g = 1.;
+					if (Vehicle_DamageValue > 0.25 && Vehicle_DamageValue <= 0.75) { 
+						g = 1 - (Vehicle_DamageValue - 0.25) * 2;
+					}
+					declare Real b = ML::Max(0., (1 - Vehicle_DamageValue * 2));
+					Vehicle_DamageBody.Color = <r,g,b>;
+				}
+			}
+			else {
+				Vehicle_Frame_Player.Visible = False;
+				Vehicle_Frame_Details.Visible = False;
+			}
+			
+			// Message time out
+			if (ServiceMessage_Time < Now) {
+				Vehicle_TankingMessage.Value = "";
+			}
+		"""
+		]);
+	
+	Layers::Create(Frame, Frame_Manialink);
+	Layers::Attach(Frame, _Player);
+	Layers::SetType(Frame, CUILayer::EUILayerType::Normal);
+	
+	declare LayerFuelFrame <=> Layers::Get(Frame);
+	Vehicle_Frames[Frame] = LayerFuelFrame;
+	
+	// Read/Write variables
+		// TODO
+}
+
+// ---------------------------------- //
+// Manialink server loop
+// ---------------------------------- //
+Void Loop(CTmPlayer _Player)
+{
+	declare Text Login = _Player.User.Login;
+	declare Text Frame = "Vehicle_Frame_"^Login;
+	
+	if (!Vehicle_Frames.existskey(Frame)) return;
+}
+
+//
+// @section Functions
+//
+
+Void StartRace(CTmPlayer _Player) {
+	if (!Vehicle_Frames.existskey("Vehicle_Frame_"^_Player.User.Login)) Init(_Player);
+
+	declare UI <=> UIManager.GetUI(_Player);
+	declare netwrite Real Vehicle_TankCapacity for UI;
+	Vehicle_TankCapacity = Setting::GetLitres();
+	declare netwrite Real Vehicle_RespawnCost for UI;
+	Vehicle_RespawnCost = Setting::GetRespawnCost();
+	declare netwrite Real Vehicle_ConsuptionBase for UI;
+	Vehicle_ConsuptionBase = Setting::GetConsume() - 20;
+}
+
+Boolean CanRace(CTmPlayer _Player) {
+	declare UI <=> UIManager.GetUI(_Player);
+	declare netread Boolean Vehicle_CanRace for UI = True;
+	return Vehicle_CanRace;
+}
+
+Void SetTanking(CTmPlayer _Player, Boolean _IsTanking) {
+	declare UI <=> UIManager.GetUI(_Player);
+	declare netwrite Boolean Vehicle_IsTanking for UI = False;
+	Vehicle_IsTanking = _IsTanking;
+}
+
+Real GetLapConsuption(CTmPlayer _Player) {
+	declare UI <=> UIManager.GetUI(_Player);
+	declare netread Real Vehicle_LapConsuption for UI;
+	return Vehicle_LapConsuption;
+}
+
+Real GetLapDistance(CTmPlayer _Player) {
+	declare UI <=> UIManager.GetUI(_Player);
+	declare netread Real Vehicle_LapDistance for UI;
+	return Vehicle_LapDistance;
+}
+
+// FILL PAGE [START]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// FILL PAGE [END]
